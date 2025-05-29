@@ -1,0 +1,51 @@
+[
+  {
+    "objectID": "Практика.html",
+    "href": "Практика.html",
+    "title": "Анализ транзакций интернет-магазина в Великобритании",
+    "section": "",
+    "text": "Финальное проектное задание охватывает все темы курса. Предлагается выполнить анализ данных, используя заданный набор данных. Проект должен быть оформлен в виде отчетной веб-страницы, созданной с использованием Quarto."
+  },
+  {
+    "objectID": "Практика.html#установка-и-загрузка-необходимых-пакетов",
+    "href": "Практика.html#установка-и-загрузка-необходимых-пакетов",
+    "title": "Анализ транзакций интернет-магазина в Великобритании",
+    "section": "Установка и загрузка необходимых пакетов",
+    "text": "Установка и загрузка необходимых пакетов\n\n\nCode\n# Загрузка библиотек\nlibrary(tidyverse)\n\n\n── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──\n✔ dplyr     1.1.4     ✔ readr     2.1.5\n✔ forcats   1.0.0     ✔ stringr   1.5.1\n✔ ggplot2   3.5.2     ✔ tibble    3.2.1\n✔ lubridate 1.9.4     ✔ tidyr     1.3.1\n✔ purrr     1.0.4     \n── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──\n✖ dplyr::filter() masks stats::filter()\n✖ dplyr::lag()    masks stats::lag()\nℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors\n\n\nCode\nlibrary(lubridate)\nlibrary(ggplot2)\nlibrary(plotly)\n\n\n\nПрисоединяю пакет: 'plotly'\n\nСледующий объект скрыт от 'package:ggplot2':\n\n    last_plot\n\nСледующий объект скрыт от 'package:stats':\n\n    filter\n\nСледующий объект скрыт от 'package:graphics':\n\n    layout\n\n\nCode\nlibrary(DT)\nlibrary(knitr)\nlibrary(openxlsx)"
+  },
+  {
+    "objectID": "Практика.html#загрузка-и-предобработка-данных",
+    "href": "Практика.html#загрузка-и-предобработка-данных",
+    "title": "Анализ транзакций интернет-магазина в Великобритании",
+    "section": "Загрузка и предобработка данных",
+    "text": "Загрузка и предобработка данных\n\n\nCode\n# Загрузка данных (предполагаем, что файл уже скачан)\nretail_data &lt;- read.xlsx(\"Online_Retail.xlsx\", sheet = 1, detectDates = TRUE)\n\n# Предварительный просмотр данных\nglimpse(retail_data)\n\n\nRows: 541,909\nColumns: 8\n$ InvoiceNo   &lt;chr&gt; \"536365\", \"536365\", \"536365\", \"536365\", \"536365\", \"536365\"…\n$ StockCode   &lt;chr&gt; \"85123A\", \"71053\", \"84406B\", \"84029G\", \"84029E\", \"22752\", …\n$ Description &lt;chr&gt; \"WHITE HANGING HEART T-LIGHT HOLDER\", \"WHITE METAL LANTERN…\n$ Quantity    &lt;dbl&gt; 6, 6, 8, 6, 6, 2, 6, 6, 6, 32, 6, 6, 8, 6, 6, 3, 2, 3, 3, …\n$ InvoiceDate &lt;date&gt; 2010-12-01, 2010-12-01, 2010-12-01, 2010-12-01, 2010-12-0…\n$ UnitPrice   &lt;dbl&gt; 2.55, 3.39, 2.75, 3.39, 3.39, 7.65, 4.25, 1.85, 1.85, 1.69…\n$ CustomerID  &lt;dbl&gt; 17850, 17850, 17850, 17850, 17850, 17850, 17850, 17850, 17…\n$ Country     &lt;chr&gt; \"United Kingdom\", \"United Kingdom\", \"United Kingdom\", \"Uni…\n\n\nCode\n# Очистка данных\nretail_clean &lt;- retail_data |&gt;\n  # Удаление строк с отсутствующими CustomerID\n  filter(!is.na(CustomerID)) |&gt;\n  # Удаление возвратов (InvoiceNo начинается с 'C')\n  filter(!str_starts(InvoiceNo, \"C\")) |&gt;\n  # Удаление строк с отрицательным количеством или ценой\n  filter(Quantity &gt; 0, UnitPrice &gt; 0) |&gt;\n  # Добавление столбца с общей стоимостью\n  mutate(TotalPrice = Quantity * UnitPrice) |&gt;\n  # Извлечение даты из InvoiceDate\n  mutate(InvoiceDate = as.Date(InvoiceDate))\n\n# Проверка очищенных данных\nsummary(retail_clean)\n\n\n  InvoiceNo          StockCode         Description           Quantity       \n Length:397884      Length:397884      Length:397884      Min.   :    1.00  \n Class :character   Class :character   Class :character   1st Qu.:    2.00  \n Mode  :character   Mode  :character   Mode  :character   Median :    6.00  \n                                                          Mean   :   12.99  \n                                                          3rd Qu.:   12.00  \n                                                          Max.   :80995.00  \n  InvoiceDate           UnitPrice          CustomerID      Country         \n Min.   :2010-12-01   Min.   :   0.001   Min.   :12346   Length:397884     \n 1st Qu.:2011-04-07   1st Qu.:   1.250   1st Qu.:13969   Class :character  \n Median :2011-07-31   Median :   1.950   Median :15159   Mode  :character  \n Mean   :2011-07-10   Mean   :   3.116   Mean   :15294                     \n 3rd Qu.:2011-10-20   3rd Qu.:   3.750   3rd Qu.:16795                     \n Max.   :2011-12-09   Max.   :8142.750   Max.   :18287                     \n   TotalPrice       \n Min.   :     0.00  \n 1st Qu.:     4.68  \n Median :    11.80  \n Mean   :    22.40  \n 3rd Qu.:    19.80  \n Max.   :168469.60"
+  },
+  {
+    "objectID": "Практика.html#исследовательский-анализ-данных-eda",
+    "href": "Практика.html#исследовательский-анализ-данных-eda",
+    "title": "Анализ транзакций интернет-магазина в Великобритании",
+    "section": "Исследовательский анализ данных (EDA)",
+    "text": "Исследовательский анализ данных (EDA)\n\n\nCode\n# Основные статистики\nbasic_stats &lt;- retail_clean |&gt;\n  summarise(\n    TotalTransactions = n_distinct(InvoiceNo),\n    TotalCustomers = n_distinct(CustomerID),\n    TotalProducts = n_distinct(StockCode),\n    TotalCountries = n_distinct(Country),\n    TotalRevenue = sum(TotalPrice),\n    AvgTransactionValue = mean(TotalPrice),\n    MedianTransactionValue = median(TotalPrice)\n  )\n\n# Вывод статистик в виде таблицы\nkable(basic_stats, caption = \"Основные статистики набора данных\")\n\n\n\nОсновные статистики набора данных\n\n\n\n\n\n\n\n\n\n\n\nTotalTransactions\nTotalCustomers\nTotalProducts\nTotalCountries\nTotalRevenue\nAvgTransactionValue\nMedianTransactionValue\n\n\n\n\n18532\n4338\n3665\n37\n8911408\n22.397\n11.8\n\n\n\n\n\nCode\n# Распределение по странам\ncountry_stats &lt;- retail_clean |&gt;\n  group_by(Country) |&gt;\n  summarise(\n    Revenue = sum(TotalPrice),\n    Customers = n_distinct(CustomerID),\n    Transactions = n_distinct(InvoiceNo)\n  ) |&gt;\n  arrange(desc(Revenue))\n\n# Визуализация распределения по странам\nggplot(country_stats |&gt; filter(Revenue &gt; 10000), aes(x = reorder(Country, Revenue), y = Revenue/1000)) +\n  geom_bar(stat = \"identity\", fill = \"steelblue\") +\n  coord_flip() +\n  labs(title = \"Доход по странам\", x = \"Страна\", y = \"Доход\") +\n  theme_minimal()"
+  },
+  {
+    "objectID": "Практика.html#анализ-временных-рядов",
+    "href": "Практика.html#анализ-временных-рядов",
+    "title": "Анализ транзакций интернет-магазина в Великобритании",
+    "section": "Анализ временных рядов",
+    "text": "Анализ временных рядов\n\n\nCode\n# Ежедневные продажи\ndaily_sales &lt;- retail_clean |&gt;\n  group_by(InvoiceDate) |&gt;\n  summarise(DailyRevenue = sum(TotalPrice))\n\n# Визуализация временного ряда\nggplot(daily_sales, aes(x = InvoiceDate, y = DailyRevenue)) +\n  geom_line(color = \"steelblue\") +\n  geom_smooth(method = \"loess\", color = \"red\", se = FALSE) +\n  labs(title = \"Ежедневные продажи\", x = \"Дата\", y = \"Доход\") +\n  theme_minimal()\n\n\n`geom_smooth()` using formula = 'y ~ x'\n\n\n\n\n\n\n\n\n\nCode\n# Месячные продажи\nmonthly_sales &lt;- retail_clean |&gt;\n  mutate(YearMonth = floor_date(InvoiceDate, \"month\")) |&gt;\n  group_by(YearMonth) |&gt;\n  summarise(MonthlyRevenue = sum(TotalPrice))\n\n# Визуализация месячных продаж\nggplot(monthly_sales, aes(x = YearMonth, y = MonthlyRevenue)) +\n  geom_col(fill = \"steelblue\") +\n  labs(title = \"Месячные продажи\", x = \"Месяц\", y = \"Доход\") +\n  theme_minimal()"
+  },
+  {
+    "objectID": "Практика.html#анализ-клиентов",
+    "href": "Практика.html#анализ-клиентов",
+    "title": "Анализ транзакций интернет-магазина в Великобритании",
+    "section": "Анализ клиентов",
+    "text": "Анализ клиентов\n\n\nCode\n# RFM-анализ (Recency, Frequency, Monetary)\nrfm_analysis &lt;- retail_clean |&gt;\n  group_by(CustomerID) |&gt;\n  summarise(\n    Recency = as.numeric(max(as.Date(\"2011-12-09\") - max(InvoiceDate))),\n    Frequency = n_distinct(InvoiceNo),\n    Monetary = sum(TotalPrice)\n  )\n\n# Кластеризация клиентов\nset.seed(123)\nrfm_scaled &lt;- rfm_analysis |&gt;\n  select(-CustomerID) |&gt;\n  scale()\n\nkmeans_result &lt;- kmeans(rfm_scaled, centers = 3, nstart = 25)\n\n# Добавление кластеров к данным\nrfm_analysis$Cluster &lt;- as.factor(kmeans_result$cluster)\n\n# Визуализация кластеров\nggplot(rfm_analysis, aes(x = Frequency, y = Monetary, color = Cluster)) +\n  geom_point(alpha = 0.6) +\n  scale_y_log10() +\n  labs(title = \"Кластеризация клиентов по RFM\", x = \"Частота\", y = \"Монетарная ценность (log10)\") +\n  theme_minimal()"
+  },
+  {
+    "objectID": "Практика.html#анализ-продуктов",
+    "href": "Практика.html#анализ-продуктов",
+    "title": "Анализ транзакций интернет-магазина в Великобритании",
+    "section": "Анализ продуктов",
+    "text": "Анализ продуктов\n\n\nCode\n# Топ-10 самых продаваемых продуктов\ntop_products &lt;- retail_clean |&gt;\n  group_by(StockCode, Description) |&gt;\n  summarise(\n    TotalQuantity = sum(Quantity),\n    TotalRevenue = sum(TotalPrice)\n  ) |&gt;\n  arrange(desc(TotalRevenue)) |&gt;\n  head(10)\n\n\n`summarise()` has grouped output by 'StockCode'. You can override using the\n`.groups` argument.\n\n\nCode\n# Визуализация топ продуктов\nggplot(top_products, aes(x = reorder(Description, TotalRevenue), y = TotalRevenue/1000)) +\n  geom_bar(stat = \"identity\", fill = \"steelblue\") +\n  coord_flip() +\n  labs(title = \"Топ-10 продуктов по доходу\", x = \"Продукт\", y = \"Доход\") +\n  theme_minimal()"
+  }
+]
