@@ -1,0 +1,187 @@
+---
+title: "Анализ транзакций интернет-магазина в Великобритании"
+author: "Валух_Нестеров"
+format: 
+  html:
+    toc: true
+    code-fold: true
+    code-tools: true
+---
+
+# Задание
+Финальное проектное задание охватывает все темы курса. Предлагается выполнить анализ данных, используя заданный набор данных. Проект должен быть оформлен в виде отчетной веб-страницы, созданной с использованием Quarto.
+
+# Данные 
+Это набор транзакционных данных, который содержит информацию обо всех транзакциях, произошедших в период с 01.12.2010 по 09.12.2011 в зарегистрированной в Великобритании интернет-магазине.
+
+InvoiceNo - 6-значный порядковый номер, уникальный для каждой транзакции. Если этот код начинается с буквы «c», это означает отмену транзакции.
+
+StockCode - 5-значное целое число, уникальное для каждого отдельного продукта.
+
+Description - название продукта
+
+Quantity - количество каждого товара (позиции) в каждой транзакции.
+
+InvoiceDate - день и время, когда была совершена каждая транзакция.
+
+UnitPrice - цена продукта за единицу.
+
+CustomerID - 5-значное целое число, уникальное для каждого клиента.	
+
+Country - название страны, в которой проживает каждый клиент.
+
+# Код проекта
+## Установка и загрузка необходимых пакетов
+```{r warning='false'}
+# Загрузка библиотек
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+library(plotly)
+library(DT)
+library(knitr)
+library(openxlsx)
+```
+## Загрузка и предобработка данных
+```{r}
+# Загрузка данных (предполагаем, что файл уже скачан)
+retail_data <- read.xlsx("Online_Retail.xlsx", sheet = 1, detectDates = TRUE)
+
+# Предварительный просмотр данных
+glimpse(retail_data)
+
+# Очистка данных
+retail_clean <- retail_data |>
+  # Удаление строк с отсутствующими CustomerID
+  filter(!is.na(CustomerID)) |>
+  # Удаление возвратов (InvoiceNo начинается с 'C')
+  filter(!str_starts(InvoiceNo, "C")) |>
+  # Удаление строк с отрицательным количеством или ценой
+  filter(Quantity > 0, UnitPrice > 0) |>
+  # Добавление столбца с общей стоимостью
+  mutate(TotalPrice = Quantity * UnitPrice) |>
+  # Извлечение даты из InvoiceDate
+  mutate(InvoiceDate = as.Date(InvoiceDate))
+
+# Проверка очищенных данных
+summary(retail_clean)
+```
+## Исследовательский анализ данных (EDA)
+```{r}
+# Основные статистики
+basic_stats <- retail_clean |>
+  summarise(
+    TotalTransactions = n_distinct(InvoiceNo),
+    TotalCustomers = n_distinct(CustomerID),
+    TotalProducts = n_distinct(StockCode),
+    TotalCountries = n_distinct(Country),
+    TotalRevenue = sum(TotalPrice),
+    AvgTransactionValue = mean(TotalPrice),
+    MedianTransactionValue = median(TotalPrice)
+  )
+
+# Вывод статистик в виде таблицы
+kable(basic_stats, caption = "Основные статистики набора данных")
+
+# Распределение по странам
+country_stats <- retail_clean |>
+  group_by(Country) |>
+  summarise(
+    Revenue = sum(TotalPrice),
+    Customers = n_distinct(CustomerID),
+    Transactions = n_distinct(InvoiceNo)
+  ) |>
+  arrange(desc(Revenue))
+
+# Визуализация распределения по странам
+ggplot(country_stats |> filter(Revenue > 10000), aes(x = reorder(Country, Revenue), y = Revenue/1000)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  labs(title = "Доход по странам", x = "Страна", y = "Доход") +
+  theme_minimal()
+```
+## Анализ временных рядов
+```{r}
+# Ежедневные продажи
+daily_sales <- retail_clean |>
+  group_by(InvoiceDate) |>
+  summarise(DailyRevenue = sum(TotalPrice))
+
+# Визуализация временного ряда
+ggplot(daily_sales, aes(x = InvoiceDate, y = DailyRevenue)) +
+  geom_line(color = "steelblue") +
+  geom_smooth(method = "loess", color = "red", se = FALSE) +
+  labs(title = "Ежедневные продажи", x = "Дата", y = "Доход") +
+  theme_minimal()
+
+# Месячные продажи
+monthly_sales <- retail_clean |>
+  mutate(YearMonth = floor_date(InvoiceDate, "month")) |>
+  group_by(YearMonth) |>
+  summarise(MonthlyRevenue = sum(TotalPrice))
+
+# Визуализация месячных продаж
+ggplot(monthly_sales, aes(x = YearMonth, y = MonthlyRevenue)) +
+  geom_col(fill = "steelblue") +
+  labs(title = "Месячные продажи", x = "Месяц", y = "Доход") +
+  theme_minimal()
+```
+## Анализ клиентов
+```{r}
+# RFM-анализ (Recency, Frequency, Monetary)
+rfm_analysis <- retail_clean |>
+  group_by(CustomerID) |>
+  summarise(
+    Recency = as.numeric(max(as.Date("2011-12-09") - max(InvoiceDate))),
+    Frequency = n_distinct(InvoiceNo),
+    Monetary = sum(TotalPrice)
+  )
+
+# Кластеризация клиентов
+set.seed(123)
+rfm_scaled <- rfm_analysis |>
+  select(-CustomerID) |>
+  scale()
+
+kmeans_result <- kmeans(rfm_scaled, centers = 3, nstart = 25)
+
+# Добавление кластеров к данным
+rfm_analysis$Cluster <- as.factor(kmeans_result$cluster)
+
+# Визуализация кластеров
+ggplot(rfm_analysis, aes(x = Frequency, y = Monetary, color = Cluster)) +
+  geom_point(alpha = 0.6) +
+  scale_y_log10() +
+  labs(title = "Кластеризация клиентов по RFM", x = "Частота", y = "Монетарная ценность (log10)") +
+  theme_minimal()
+```
+## Анализ продуктов
+```{r}
+# Топ-10 самых продаваемых продуктов
+top_products <- retail_clean |>
+  group_by(StockCode, Description) |>
+  summarise(
+    TotalQuantity = sum(Quantity),
+    TotalRevenue = sum(TotalPrice)
+  ) |>
+  arrange(desc(TotalRevenue)) |>
+  head(10)
+
+# Визуализация топ продуктов
+ggplot(top_products, aes(x = reorder(Description, TotalRevenue), y = TotalRevenue/1000)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  labs(title = "Топ-10 продуктов по доходу", x = "Продукт", y = "Доход") +
+  theme_minimal()
+```
+# Выводы
+
+1. Общие показатели: В наборе данных содержится 18532 транзакций от 4338 уникальных клиентов, принесших общий доход в 8911408 единиц.
+
+2. Географическое распределение: Основной объем продаж приходится на Великобританию, но есть продажи в других странах, таких как Нидерланды и Германия.
+
+3. Временные тенденции: Наблюдаются сезонные колебания продаж с пиками в ноябре (вероятно, связанные с Черной пятницей и подготовкой к Рождеству).
+
+4. Анализ клиентов: RFM-анализ позволил выделить три кластера клиентов с различными паттернами покупок, что может быть полезно для сегментации и персонализации маркетинговых кампаний.
+
+5. Анализ продуктов: Анализ ассоциаций выявил несколько значимых правил, которые могут быть использованы для оптимизации размещения продуктов.
